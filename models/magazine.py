@@ -1,65 +1,93 @@
+
+
 from database.connection import get_db_connection
-
-# Define a class for magazines
 class Magazine:
-    # Initialize a magazine with optional parameters
-    def _init_(self, id=None, name=None, category=None):
-        # Initialize instance variables
+    def __init__(self, id, name, category):
         self._id = id
-        self._name = name
-        self._category = category
+        self.name = name
+        self.category = category
 
-    
     @property
     def id(self):
         return self._id
-
     
+    @property
     def name(self):
         return self._name
-
     
-    def name(self, name):
-        if isinstance(name, str) and 2 <= len(name) <= 16:
-            self._name = name
-        else:
-            raise ValueError("Name must be a string between 2 and 16 characters long")
+    @name.setter
+    def name(self, value):
+        if not isinstance(value, str):
+            raise ValueError("Name must be a string")
+        if not(2 <= len(value) <= 16):
+            raise ValueError("Name must be between 2 and 16 characters")
+        self._name = value
 
-   
+    @property
     def category(self):
         return self._category
-
     
-    def category(self, category):
-        if isinstance(category, str) and len(category) > 0:
-            self._category = category
-        else:
-            raise ValueError("Category must be a non-empty string")
-
-
-    def save(self, cursor):
+    @category.setter
+    def category(self, value):
+        if not isinstance(value, str):
+            raise ValueError("Category must be a string")
+        if len(value) <= 0:
+            raise ValueError("Category must be longer than 0 characters")
+        self._category = value
         conn = get_db_connection()
         cursor = conn.cursor()
-        
-        if self.id is None:
-            cursor.execute('INSERT INTO magazines (name, category) VALUES (?, ?)', (self.name, self.category))
-            self._id = cursor.lastrowid
-        
-        else:
-            cursor.execute('UPDATE magazines SET name = ?, category = ? WHERE id = ?', (self.name, self.category, self.id))
+        cursor.execute('UPDATE magazines SET category = ? WHERE id = ?', (value, self._id))
         conn.commit()
         conn.close()
 
+    def articles(self):
+        from models.article import Article
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT * FROM articles
+            WHERE magazine_id = ?
+        ''', (self._id,))
+        articles = cursor.fetchall()
+        conn.close()
+        return [Article(article['id'], article['title'], article['content'], article['author_id'], article['magazine_id']) for article in articles]
     
-    def fetch_all(cls, cursor):
-        magazines = []
-        cursor.execute("SELECT * FROM magazines")
-        rows = cursor.fetchall()
-        
-        for row in rows:
-            magazine = cls(*row)
-            magazines.append(magazine)
-        return magazines
+    def contributors(self):
+        from models.author import Author
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT DISTINCT authors. * FROM authors
+            JOIN articles ON authors.id = articles.author_id
+            WHERE  articles.magazine_id = ?
+        ''', (self._id,))
+        authors = cursor.fetchall()
+        conn.close()
+        return [Author(author['id'], author['name']) for author in authors]
 
-    def _repr_(self):
+    def article_titles(self):
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('SELECT title FROM articles WHERE magazine_id = ?', (self._id,))
+        titles = [row['title'] for row in cursor.fetchall()]
+        conn.close()
+        return titles
+    
+    def contributing_authors(self):
+        from models.author import Author
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT authors. *, COUNT(articles.id) as article_count FROM authors
+            JOIN articles ON authors.id = articles.author_id
+            WHERE articles.magazine_id = ?
+            GROUP BY authors.id
+            HAVING article_count > 2
+        ''', (self._id,))
+        authors = cursor.fetchall()
+        conn.close()
+        return [Author(author['id'], author['name']) for author in authors]
+
+
+    def __repr__(self):
         return f'<Magazine {self.name}>'

@@ -1,64 +1,109 @@
+from database.connection import get_db_connection
 class Article:
-    def _init_(self, id=None, title=None, content=None, author_id=None, magazine_id=None):
-        self._id = id
-        self._title = title
-        self._content = content
-        self._author_id = author_id
-        self._magazine_id = magazine_id
+    def __init__(self, id, title, content, author_id, magazine_id):
+        self.id = id
+        self.title = title
+        self.content = content
+        self.author_id = author_id
+        self.magazine_id = magazine_id
 
 
-    @property
-    def id(self):
-        return self._id
-
+        def save(self):
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('INSERT INTO articles (title, content, author_id, magazine_id) VALUES (?, ?, ?, ?)', 
+                    (self.title, self.content, self.author_id, self.magazine_id))
+            self._id = cursor.lastrowid
+            conn.commit()
+            conn.close()
 
     @property
     def title(self):
+        if not hasattr(self, '_title'):
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT title FROM articles WHERE id = ?", (self._id,))
+            result = cursor.fetchone()
+            conn.close()
+            if result:
+                self._title = result[0]
+            else:
+                raise ValueError("Title not found in database")
         return self._title
 
-    
     @title.setter
-    def title(self, title):
-        self._title = title
+    def title(self, value):
+        if not hasattr(self, '_title'):
+            if isinstance(value, str) and 5 <= len(value) <= 50:
+                self._title = value
+            else:
+                raise ValueError("Title must be a string and between 5 and 50 characters")
+        else:
+            raise ValueError("Title cannot be changed after it is set")
 
-    
     @property
     def content(self):
+        if not hasattr(self, '_content'):
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute("SELECT content FROM articles WHERE id = ?", (self._id,))
+            result = cursor.fetchone()
+            conn.close()
+            if result:
+                self._content = result[0]
+            else:
+                raise ValueError("Content not found in database")
         return self._content
 
-    # Set the article's content
     @content.setter
-    def content(self, content):
-        self._content = content
-
-    # Define a property for the article's author id
-    @property
-    def author_id(self):
-        return self._author_id
-
-    # Set the article's author id
-    @author_id.setter
-    def author_id(self, author_id):
-        self._author_id = author_id
-
-
-    @property
-    def magazine_id(self):
-        return self._magazine_id
-    @magazine_id.setter
-    def magazine_id(self, magazine_id):
-        self._magazine_id = magazine_id
-
-    
-    def save(self, cursor):
-        if self.id is None:
-            cursor.execute('INSERT INTO articles (title, content, author_id, magazine_id) VALUES (?, ?, ?, ?)',
-                           (self.title, self.content, self.author_id, self.magazine_id))
-            self._id = cursor.lastrowid
+    def content(self, value):
+        if not hasattr(self, '_content'):
+            if isinstance(value, str):
+                self._content = value
+            else:
+                raise ValueError("Content must be a string")
         else:
-            cursor.execute('UPDATE articles SET title = ?, content = ?, author_id = ?, magazine_id = ? WHERE id = ?',
-                           (self.title, self.content, self.author_id, self.magazine_id, self.id))
+            raise ValueError("Content cannot be changed after it is set")
+
+    @property
+    def author(self):
+        if not hasattr(self, '_author'):
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT authors.name
+                FROM articles
+                INNER JOIN authors ON articles.author_id = authors.id
+                WHERE articles.id = ?
+            ''', (self._id,))
+            result = cursor.fetchone()
+            conn.close()
+            if result:
+                self._author = result[0]
+            else:
+                raise ValueError("Author not found in database")
+        return self._author
+
+    @property
+    def magazine(self):
+        if not hasattr(self, '_magazine'):
+            conn = get_db_connection()
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT magazines.name
+                FROM articles
+                INNER JOIN magazines ON articles.magazine_id = magazines.id
+                WHERE articles.id = ?
+            ''', (self._id,))
+            result = cursor.fetchone()
+            conn.close()
+            if result:
+                self._magazine = result[0]
+            else:
+                raise ValueError("Magazine not found in database")
+        return self._magazine
+    
+    def __repr__(self):
+        return f'<Article {self.title}>'
 
     
-    def _repr_(self):
-        return f'<Article {self.title}>'
