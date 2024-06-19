@@ -35,11 +35,11 @@ def main():
 
         # Query and display results
         print("\nMagazines:")
-        for magazine in Magazine.fetch_all(cursor):
+        for magazine in Magazine.fetch_all():
             print(magazine)
 
         print("\nAuthors:")
-        for author in Author.fetch_all(cursor):
+        for author in Author.fetch_all():
             print(author)
 
     except Exception as e:
@@ -50,4 +50,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
